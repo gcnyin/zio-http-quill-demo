@@ -11,9 +11,12 @@ lazy val root = (project in file("."))
       "dev.zio" %% "zio-http" % "3.0.0-RC2",
       "dev.zio" %% "zio-prelude" % "1.0.0-RC19",
       "dev.zio" %% "zio-json" % "0.6.0",
+      "dev.zio" %% "zio-logging" % "2.1.13",
+      "dev.zio" %% "zio-logging-slf4j2" % "2.1.13",
       "io.getquill" %% "quill-zio" % "4.6.1",
       "io.getquill" %% "quill-jdbc-zio" % "4.6.1",
       "org.postgresql" % "postgresql" % "42.5.4",
+      "org.slf4j" % "slf4j-api" % "2.0.7",
       "ch.qos.logback" % "logback-classic" % "1.4.8"
     )
   )

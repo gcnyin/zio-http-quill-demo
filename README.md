@@ -1,5 +1,7 @@
 # zio-http-quill-demo
 
+`curl localhost:8080/user/list`
+
 ## SQL scripts
 
 ```sql

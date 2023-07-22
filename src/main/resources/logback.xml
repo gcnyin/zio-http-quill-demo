@@ -4,11 +4,11 @@
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>[%date{ISO8601}] %highlight([%level]) [%logger] [%marker] - %msg %n</pattern>
+            <pattern>[%date{ISO8601}] %highlight([%level]) [%logger] [%mdc] [%kvp] - %msg %n</pattern>
         </encoder>
     </appender>
 
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

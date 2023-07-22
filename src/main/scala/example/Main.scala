@@ -1,12 +1,14 @@
 package example
 
+import example.middleware.{LoggingMiddleware, ResponseTimeMiddleware}
 import example.repository.{UserRepository, UserRepositoryImpl}
 import example.request.CreateUserRequest
 import io.getquill.jdbczio.Quill
-import io.getquill.{CompositeNamingStrategy, CompositeNamingStrategy2, PostgresEscape, SnakeCase}
+import io.getquill.{CompositeNamingStrategy2, PostgresEscape, SnakeCase}
 import zio.http._
 import zio.json._
-import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer}
+import zio.logging.backend.SLF4J
+import zio.{Runtime, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer}
 
 import javax.sql.DataSource
 
@@ -23,6 +25,7 @@ object Main extends ZIOAppDefault {
       case Method.GET -> Root / "user" / "list" =>
         val response = for {
           worlds <- userRepository.listUser.mapError(e => ErrorMsg("INTERNAL_ERROR", e.getMessage))
+          _ <- ZIO.log(s"return ${worlds.size} worlds")
         } yield Response.json(worlds.toJson)
         response.catchAll(errorMsg => ZIO.succeed(Response.json(errorMsg.toJson)))
 
@@ -38,6 +41,9 @@ object Main extends ZIOAppDefault {
     }
   }
 
+  override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
+    Runtime.removeDefaultLoggers >>> SLF4J.slf4j
+
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] = {
     val quillLayer: ZLayer[DataSource, Nothing, Quill.Postgres[CompositeNamingStrategy2[SnakeCase, PostgresEscape]]] =
       Quill.Postgres.fromNamingStrategy(CompositeNamingStrategy2(SnakeCase, PostgresEscape))
@@ -46,10 +52,16 @@ object Main extends ZIOAppDefault {
 
     val userRepositoryLayer = dsLayer >>> quillLayer >>> UserRepositoryImpl.layer
 
+    val responseTimeMiddleware = new ResponseTimeMiddleware()
+
+    val loggingMiddleware = new LoggingMiddleware()
+
+    val middlewares = loggingMiddleware ++ responseTimeMiddleware
+
     for {
       userRepositoryEnv <- userRepositoryLayer.build
       httpApp <- app.provideEnvironment(userRepositoryEnv)
-      _ <- Server.serve(httpApp).provide(Server.default)
+      _ <- Server.serve(httpApp @@ middlewares).provide(Server.default)
     } yield ()
   }
 }
