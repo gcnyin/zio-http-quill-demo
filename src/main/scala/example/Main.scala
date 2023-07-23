@@ -24,9 +24,9 @@ object Main extends ZIOAppDefault {
     Http.collectZIO[Request] {
       case Method.GET -> Root / "user" / "list" =>
         val response = for {
-          worlds <- userRepository.listUser.mapError(e => ErrorMsg("INTERNAL_ERROR", e.getMessage))
-          _ <- ZIO.log(s"return ${worlds.size} worlds")
-        } yield Response.json(worlds.toJson)
+          users <- userRepository.listUser.mapError(e => ErrorMsg("INTERNAL_ERROR", e.getMessage))
+          _ <- ZIO.log(s"return ${users.size} users")
+        } yield Response.json(users.toJson)
         response.catchAll(errorMsg => ZIO.succeed(Response.json(errorMsg.toJson)))
 
       case req @ Method.POST -> Root / "user" =>
