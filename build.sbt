@@ -16,6 +16,7 @@ lazy val root = (project in file("."))
       "io.getquill" %% "quill-zio" % "4.6.1",
       "io.getquill" %% "quill-jdbc-zio" % "4.6.1",
       "org.postgresql" % "postgresql" % "42.5.4",
+      "p6spy" % "p6spy" % "3.9.1",
       "at.favre.lib" % "bcrypt" % "0.10.2",
       "io.prometheus" % "simpleclient_common" % "0.16.0",
       "org.slf4j" % "slf4j-api" % "2.0.7",

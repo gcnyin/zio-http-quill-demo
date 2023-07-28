@@ -25,7 +25,7 @@ object Main extends ZIOAppDefault {
 
   def httpApp(userRepository: UserRepository): Http[Any, Nothing, Request, Response] = {
     Http.collectZIO[Request] {
-      case Method.GET -> Root / "user" / "list" =>
+      case Method.GET -> Root / "user" / "list-user" =>
         val response = for {
           users <- userRepository.listUser.mapError(e => ErrorMsg("INTERNAL_ERROR", e.getMessage))
           _ <- ZIO.log(s"find ${users.size} users")
@@ -33,7 +33,7 @@ object Main extends ZIOAppDefault {
         } yield Response.json(response.toJson)
         response.catchAll(errorMsg => ZIO.succeed(Response.json(errorMsg.toJson)))
 
-      case req @ Method.POST -> Root / "user" =>
+      case req @ Method.POST -> Root / "user" / "create-user" =>
         val response = for {
           rawBody <- req.body.asString.mapError(e => ErrorMsg("INVALID_REQUEST", e.getMessage))
           request <- ZIO.fromEither(rawBody.fromJson[CreateUserRequest]).mapError(e => ErrorMsg("INVALID_BODY", e))
