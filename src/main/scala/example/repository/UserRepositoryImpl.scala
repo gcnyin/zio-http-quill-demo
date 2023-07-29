@@ -11,7 +11,7 @@ final case class UserRepositoryImpl(quill: Quill.Postgres[CompositeNamingStrateg
 
   import quill._
 
-  override def listUser: ZIO[Any, SQLException, Seq[User]] = run(query[User])
+  override def listUser: ZIO[Any, SQLException, Seq[(Int, String)]] = run(query[User].map(u => (u.userId, u.username)))
 
   override def createUser(username: String, password: String): ZIO[Any, SQLException, Int] =
     run(quote(query[User].insertValue(lift(User(userId = 0, username = username, password = password)))).returningGenerated(_.userId))

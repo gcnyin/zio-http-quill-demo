@@ -1,10 +1,10 @@
 package example
 
 import at.favre.lib.crypto.bcrypt.BCrypt
-import example.middleware.{LoggingMiddleware, ResponseTimeMiddleware}
+import example.middleware.LoggingMiddleware
 import example.repository.{UserRepository, UserRepositoryImpl}
 import example.request.CreateUserRequest
-import example.response.ListUserResponse
+import example.response.{CreateUserResponse, ListUserResponse}
 import io.getquill.jdbczio.Quill
 import io.getquill.{CompositeNamingStrategy2, PostgresEscape, SnakeCase}
 import zio.http._
@@ -27,21 +27,36 @@ object Main extends ZIOAppDefault {
     Http.collectZIO[Request] {
       case Method.GET -> Root / "user" / "list-user" =>
         val response = for {
-          users <- userRepository.listUser.mapError(e => ErrorMsg("INTERNAL_ERROR", e.getMessage))
-          _ <- ZIO.log(s"find ${users.size} users")
-          response = ListUserResponse(users.map { user => ListUserResponse.User(user.userId, user.username) })
+          users <- userRepository.listUser
+            .logError("listUser error")
+            .mapError { e => ErrorMsg.internalError(e.getMessage) }
+
+          response = ListUserResponse(users = users.map { case (userId, username) =>
+            ListUserResponse.User(userId = userId, username = username)
+          })
         } yield Response.json(response.toJson)
         response.catchAll(errorMsg => ZIO.succeed(Response.json(errorMsg.toJson)))
 
       case req @ Method.POST -> Root / "user" / "create-user" =>
         val response = for {
-          rawBody <- req.body.asString.mapError(e => ErrorMsg("INVALID_REQUEST", e.getMessage))
-          request <- ZIO.fromEither(rawBody.fromJson[CreateUserRequest]).mapError(e => ErrorMsg("INVALID_BODY", e))
-          password <- ZIO.succeed(BCrypt.withDefaults().hashToString(12, request.password.toCharArray))
-          index <- userRepository
+          rawBody <- req.body.asString
+            .logError("decode body string error")
+            .mapError { e => ErrorMsg.invalidBody(e.getMessage) }
+          request <- ZIO
+            .fromEither(rawBody.fromJson[CreateUserRequest])
+            .logError("CreateUserRequest decode error")
+            .mapError { e => ErrorMsg.invalidRequest(e) }
+
+          password <- ZIO.succeed(BCrypt.withDefaults().hashToString(8, request.password.toCharArray))
+
+          userId <- userRepository
             .createUser(username = request.username, password = password)
-            .mapError(e => ErrorMsg("INTERNAL_ERROR", e.getMessage))
-        } yield Response.text(index.toString)
+            .mapError { e => new RuntimeException(e) }
+            .logError("createUser error")
+            .mapError { e => ErrorMsg.internalError(e.getMessage) }
+
+          _ <- ZIO.log(s"created user: ${request.username}")
+        } yield Response.json(CreateUserResponse(userId = userId).toJson)
         response.catchAll(errorMsg => ZIO.succeed(Response.json(errorMsg.toJson)))
 
       case Method.GET -> Root / "hikaricp-metrics" =>
@@ -67,11 +82,9 @@ object Main extends ZIOAppDefault {
 
     val userRepositoryLayer = dsLayer >>> quillLayer >>> UserRepositoryImpl.layer
 
-    val responseTimeMiddleware = new ResponseTimeMiddleware()
-
     val loggingMiddleware = new LoggingMiddleware()
 
-    val middlewares = loggingMiddleware ++ responseTimeMiddleware
+    val middlewares = loggingMiddleware
 
     for {
       userRepositoryEnv <- userRepositoryLayer.build

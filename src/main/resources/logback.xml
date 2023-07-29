@@ -4,7 +4,7 @@
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>[%date{ISO8601}] %highlight([%level]) [%logger] [%kvp] - %msg%n</pattern>
+            <pattern>[%date{ISO8601}] %highlight([%level]) [%logger] [%thread] [%kvp] - %msg%n</pattern>
         </encoder>
     </appender>
 
