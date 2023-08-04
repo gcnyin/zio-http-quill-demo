@@ -1,7 +1,7 @@
 package example
 
 import at.favre.lib.crypto.bcrypt.BCrypt
-import example.middleware.LoggingMiddleware
+import example.middleware.{LoggingMiddleware, ResponseTimeMiddleware}
 import example.repository.{UserRepository, UserRepositoryImpl}
 import example.request.CreateUserRequest
 import example.response.{CreateUserResponse, ListUserResponse}
@@ -84,7 +84,9 @@ object Main extends ZIOAppDefault {
 
     val loggingMiddleware = new LoggingMiddleware()
 
-    val middlewares = loggingMiddleware
+    val responseTimeMiddleware = new ResponseTimeMiddleware()
+
+    val middlewares = loggingMiddleware ++ responseTimeMiddleware
 
     for {
       userRepositoryEnv <- userRepositoryLayer.build
