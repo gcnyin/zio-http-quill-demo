@@ -10,18 +10,27 @@ import io.getquill.{CompositeNamingStrategy2, PostgresEscape, SnakeCase}
 import zio.http._
 import zio.json._
 import zio.logging.backend.SLF4J
-import zio.{Runtime, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer}
+import zio.metrics.connectors.prometheus.PrometheusPublisher
+import zio.metrics.connectors.{MetricsConfig, prometheus}
+import zio.{Runtime, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer, durationInt}
 
 import java.io.StringWriter
 import javax.sql.DataSource
 
 object Main extends ZIOAppDefault {
+  private val metricsConfig = ZLayer.succeed(MetricsConfig(5.seconds))
+
   def app: ZIO[UserRepository, Any, Http[Any, Nothing, Request, Response]] = {
     ZIO.environment[UserRepository].map { env =>
       val userRepository = env.get[UserRepository]
       httpApp(userRepository)
     }
   }
+
+  private lazy val prometheusRouter =
+    Http.collectZIO[Request] { case Method.GET -> Root / "metrics" =>
+      ZIO.serviceWithZIO[PrometheusPublisher](_.get.map(Response.text))
+    }
 
   def httpApp(userRepository: UserRepository): Http[Any, Nothing, Request, Response] = {
     Http.collectZIO[Request] {
@@ -91,7 +100,9 @@ object Main extends ZIOAppDefault {
     for {
       userRepositoryEnv <- userRepositoryLayer.build
       httpApp <- app.provideEnvironment(userRepositoryEnv)
-      _ <- Server.serve(httpApp @@ middlewares).provide(Server.default)
+      _ <- Server
+        .serve((httpApp @@ middlewares) ++ prometheusRouter)
+        .provide(Server.default, metricsConfig, prometheus.publisherLayer, prometheus.prometheusLayer)
     } yield ()
   }
 }
